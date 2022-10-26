@@ -2,24 +2,15 @@ import json
 import discord
 import os
 import platform
+import asyncio
 import datetime
 from dotenv import load_dotenv
+from utils.utils import read_json
+from utils.utils import write_json
 
 SLSH = "/"
 if platform.system() == "Windows":
     SLSH="\\"
-
-
-def read_json(file_path :str) -> dict:
-    file = open(file_path, "r")
-    cont = json.loads(file.read())
-    file.close()
-    return cont
-
-def write_json(file_path:str, json_dat : dict):
-    file = open(file_path, "w")
-    file.write(json.dumps(json_dat, indent=2))
-    file.close()
 
 
 class Client(discord.Client):
@@ -34,7 +25,9 @@ class Client(discord.Client):
 
         @self.tree.command(name="get-unreal", description="get users unrealness factor")
         async def get_unreal(interaction: discord.Interaction, user: discord.Member):
+
             u_unreal = await self.get_user_unrealness(interaction.guild, user)
+
             if u_unreal == None:
                 await interaction.response.send_message("Something went wrong")
             else:
@@ -42,9 +35,13 @@ class Client(discord.Client):
 
         @self.tree.command(name="unreal", description="add or subtract to a users unreal factor")
         async def unreal(interaction: discord.Interaction, increment:int, user: discord.Member):
-            msg = await self.update_user_unrealness(increment, interaction.guild, user.id, interaction)
+            msg = await self.update_user_unrealness(increment, interaction.guild, user.id)
             await interaction.response.send_message(msg)
             await self.update_members_of_guild(interaction.guild)
+
+    @staticmethod
+    def init_user(name: str, time: datetime.datetime):
+        return {"unrealness": 0, "name": name, "previous_unrealness": {str(time): {"value": 0, "reason": "init"}}}
 
     @staticmethod
     def empty_guild():
@@ -54,8 +51,9 @@ class Client(discord.Client):
         return self.json_path+SLSH+str(guildid)+extension
 
     async def get_user_unrealness(self, guild: discord.Guild, user: discord.Member) -> int:
-        if not str(guild.id)+".json" in os.listdir(self.json_path):
-            await self.create_guild_json_file(guild)
+        await self.create_guild_json_file(guild)
+        await self.update_members_of_guild(guild)
+
         json_file = read_json(self.get_file_path(guild.id))
         today = datetime.datetime.now()
         year = str(today.year)
@@ -69,9 +67,10 @@ class Client(discord.Client):
 
         return json_file["record"][year][month][str(user.id)]["unrealness"]
 
-    async def update_user_unrealness(self, delta: int, guild: discord.Guild, user: int, interaction: discord.Interaction) -> str:
-        if not str(guild.id)+".json" in os.listdir(self.json_path):
-            await self.create_guild_json_file(guild)
+    async def update_user_unrealness(self, delta: int, guild: discord.Guild, user: int) -> str:
+        await self.create_guild_json_file(guild)
+        await self.update_members_of_guild(guild)
+
         json_file = read_json(self.get_file_path(guild.id))
 
         today = datetime.datetime.now()
@@ -84,7 +83,9 @@ class Client(discord.Client):
         if not str(user) in json_file["record"][year][month].keys():
             return "something went wrong 75"
 
+
         json_file["record"][year][month][str(user)]["unrealness"]+=delta
+        json_file["record"][year][month][str(user)]["previous_unrealness"][str(today)] = {"value": json_file["record"][year][month][str(user)]["unrealness"], "reason": ""}
         write_json(self.get_file_path(guild.id), json_file)
         usr = guild.get_member(user)
         return f"Unrealness for {usr.name} updated to "+str(json_file["record"][year][month][str(user)]["unrealness"])
@@ -106,7 +107,8 @@ class Client(discord.Client):
         
         if json_file["record"][year][month] == {}:
             for user in guild.members:
-                json_file["record"][year][month][str(user.id)] = {"unrealness": 0, "name": user.name}
+                now = datetime.datetime.now()
+                json_file["record"][year][month][str(user.id)] = Client.init_user(user.name, now)
         else:
             for user in guild.members:
                 json_file["record"][year][month][str(user.id)]["name"] = user.name
@@ -127,6 +129,7 @@ class Client(discord.Client):
         for member in json_file["record"][year][month].keys():
             if int(member) == guild.owner_id:
                 continue
+            
             mem_obj = json_file["record"][year][month][member]
             await guild.get_member(int(member)).edit(nick=mem_obj["name"]+" ("+str(mem_obj["unrealness"])+")")
 
