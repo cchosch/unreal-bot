@@ -1,6 +1,9 @@
-/guilds
+guilds/
 .env
+__pycache__/
+*.pyc
 
 #nohup
 nohup.out
 a.log
+

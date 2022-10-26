@@ -111,6 +111,8 @@ class Client(discord.Client):
                 json_file["record"][year][month][str(user.id)] = Client.init_user(user.name, now)
         else:
             for user in guild.members:
+                if not str(user.id) in json_file["record"][year][month].keys():
+                    json_file["record"][year][month][str(user.id)] = Client.init_user(user.name, now)
                 json_file["record"][year][month][str(user.id)]["name"] = user.name
         
         write_json(self.get_file_path(guild.id), json_file)
@@ -120,18 +122,25 @@ class Client(discord.Client):
         year = str(today.year)
         month = str(today.month)
 
-        if not os.path.exists(self.get_file_path(guild.id)):
-            return
+        await self.create_guild_json_file(guild)
 
         json_file = read_json(self.get_file_path(guild.id))
         if (not year in json_file["record"].keys()) or (not month in json_file["record"][year].keys()):
             return
-        for member in json_file["record"][year][month].keys():
-            if int(member) == guild.owner_id:
+        if guild.id == 914593613697142844:
+            HC = guild.get_role(914617397481177150)
+            NHC = guild.get_role(956032889370329099)
+
+        for member_obj in guild.members:
+            if member_obj.id == guild.owner_id:
                 continue
-            
-            mem_obj = json_file["record"][year][month][member]
-            await guild.get_member(int(member)).edit(nick=mem_obj["name"]+" ("+str(mem_obj["unrealness"])+")")
+
+            if guild.id == 914593613697142844:
+                if not (HC in member_obj.roles or NHC in member_obj.roles):
+                    continue
+
+            mem_obj = json_file["record"][year][month][str(member_obj.id)]
+            await member_obj.edit(nick=member_obj.name+" ("+str(mem_obj["unrealness"])+")")
 
     async def on_ready(self):
         print(f"Logged in as {self.user}")
