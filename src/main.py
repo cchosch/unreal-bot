@@ -26,7 +26,6 @@ class Client(discord.Client):
 
         @self.tree.command(name="get-unreal", description="get users unrealness factor")
         async def get_unreal(interaction: discord.Interaction, user: discord.Member):
-
             u_unreal = await self.get_user_unrealness(interaction.guild, user)
 
             if u_unreal == None:
@@ -39,6 +38,11 @@ class Client(discord.Client):
             msg = await self.update_user_unrealness(increment, interaction.guild, user.id)
             await interaction.response.send_message(msg)
             await self.update_members_of_guild(interaction.guild)
+
+    @staticmethod
+    def get_nick(user: discord.Member, unrealness: str):
+        return user.name+" ("+str(unrealness)+")"
+        pass    
 
     @staticmethod
     def init_user(name: str, time: datetime.datetime):
@@ -135,12 +139,12 @@ class Client(discord.Client):
             if member_obj.id == guild.owner_id:
                 continue
 
+            mem_obj = json_file["record"][year][month][str(member_obj.id)]
             if guild.id == 914593613697142844:
-                if not (HC in member_obj.roles or NHC in member_obj.roles):
+                if (not (HC in member_obj.roles or NHC in member_obj.roles)) or member_obj.nick == Client.get_nick(member_obj, mem_obj["unrealness"]):
                     continue
 
-            mem_obj = json_file["record"][year][month][str(member_obj.id)]
-            await member_obj.edit(nick=member_obj.name+" ("+str(mem_obj["unrealness"])+")")
+            await member_obj.edit(nick=Client.get_nick(member_obj, mem_obj["unrealness"]))
 
     async def on_ready(self):
         print(f"Logged in as {self.user}")
