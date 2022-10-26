@@ -35,6 +35,11 @@ class Client(discord.Client):
 
         @self.tree.command(name="unreal", description="add or subtract to a users unreal factor")
         async def unreal(interaction: discord.Interaction, increment:int, user: discord.Member):
+            if interaction.message.author.id == user.id:
+                msg = await self.update_user_unrealness(-5, interaction.guild, user.id)
+                await interaction.response.send_message(msg)
+                await self.update_members_of_guild(interaction.guild)
+                return
             msg = await self.update_user_unrealness(increment, interaction.guild, user.id)
             await interaction.response.send_message(msg)
             await self.update_members_of_guild(interaction.guild)
