@@ -32,7 +32,15 @@ class Client(discord.Client):
 
         self.tree = discord.app_commands.CommandTree(self)
 
-        @self.tree.command(name="unreal", description="add or subtract to a users unreal counter")
+        @self.tree.command(name="get-unreal", description="get users unrealness factor")
+        async def get_unreal(interaction: discord.Interaction, user: discord.Member):
+            u_unreal = await self.get_user_unrealness(interaction.guild, user)
+            if u_unreal == None:
+                await interaction.response.send_message("Something went wrong")
+            else:
+                await interaction.response.send_message(f"{user.name}'s unrealness factor is {u_unreal}")
+
+        @self.tree.command(name="unreal", description="add or subtract to a users unreal factor")
         async def unreal(interaction: discord.Interaction, increment:int, user: discord.Member):
             msg = await self.update_user_unrealness(increment, interaction.guild, user.id, interaction)
             await interaction.response.send_message(msg)
@@ -45,6 +53,22 @@ class Client(discord.Client):
     def get_file_path(self, guildid, extension=".json"):
         return self.json_path+SLSH+str(guildid)+extension
 
+    async def get_user_unrealness(self, guild: discord.Guild, user: discord.Member) -> int:
+        if not str(guild.id)+".json" in os.listdir(self.json_path):
+            await self.create_guild_json_file(guild)
+        json_file = read_json(self.get_file_path(guild.id))
+        today = datetime.datetime.now()
+        year = str(today.year)
+        month = str(today.month)
+
+        if (not year in json_file["record"].keys()) or (not month in json_file["record"][year].keys()):
+            return
+
+        if not str(user.id) in json_file["record"][year][month].keys():
+            return
+
+        return json_file["record"][year][month][str(user.id)]["unrealness"]
+
     async def update_user_unrealness(self, delta: int, guild: discord.Guild, user: int, interaction: discord.Interaction) -> str:
         if not str(guild.id)+".json" in os.listdir(self.json_path):
             await self.create_guild_json_file(guild)
@@ -55,10 +79,10 @@ class Client(discord.Client):
         month = str(today.month)
 
         if (not year in json_file["record"].keys()) or (not month in json_file["record"][year].keys()):
-            return "something went wrong 57"
+            return "something went wrong 72"
 
         if not str(user) in json_file["record"][year][month].keys():
-            return "something went wrong 59"
+            return "something went wrong 75"
 
         json_file["record"][year][month][str(user)]["unrealness"]+=delta
         write_json(self.get_file_path(guild.id), json_file)

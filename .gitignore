@@ -1,2 +1,6 @@
 /guilds
 .env
+
+#nohup
+nohup.out
+a.log
