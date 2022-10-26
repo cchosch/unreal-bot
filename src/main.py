@@ -1,5 +1,6 @@
 import json
 import discord
+import time
 import os
 import platform
 import asyncio
@@ -69,7 +70,6 @@ class Client(discord.Client):
 
     async def update_user_unrealness(self, delta: int, guild: discord.Guild, user: int) -> str:
         await self.create_guild_json_file(guild)
-        await self.update_members_of_guild(guild)
 
         json_file = read_json(self.get_file_path(guild.id))
 
