@@ -1,0 +1,17 @@
+{
+  "name": "unreal-bot",
+  "version": "0.0.1",
+  "description": "unreal-bot to track unrealness counter",
+  "main": "src/js/index.js",
+  "repository": "https://github.com/cchosch/unreal-bot.git",
+  "author": "cchosch <colinhoscheit@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "start": "nodemon src/js/index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.6.0",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2"
+  }
+}

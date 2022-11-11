@@ -47,7 +47,6 @@ class Client(discord.Client):
     @staticmethod
     def get_nick(user: discord.Member, unrealness: str):
         return user.name+" ("+str(unrealness)+")"
-        pass    
 
     @staticmethod
     def init_user(name: str, time: datetime.datetime):
@@ -114,6 +113,7 @@ class Client(discord.Client):
             print("NOT IN MONTH")
             json_file["record"][year][month] = {}
         
+        now = datetime.datetime.now()
         if json_file["record"][year][month] == {}:
             for user in guild.members:
                 now = datetime.datetime.now()
@@ -121,6 +121,7 @@ class Client(discord.Client):
         else:
             for user in guild.members:
                 if not str(user.id) in json_file["record"][year][month].keys():
+                    now = datetime.datetime.now()
                     json_file["record"][year][month][str(user.id)] = Client.init_user(user.name, now)
                 json_file["record"][year][month][str(user.id)]["name"] = user.name
         
