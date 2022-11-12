@@ -2,6 +2,8 @@ from datetime import datetime
 import os
 import xlwt
 import calendar
+import sys
+import json
 from utils.utils import read_json
 
 GUILD_PATH =os.path.join(os.getcwd(), "guilds")
@@ -19,11 +21,22 @@ def get_last_score(year: str, month: str, userid: str, guild_data: dict):
 
 
 def to_spreadsheet( guildid: str, year: int=None, month: int=None):
+    if (month == None and year != None) or (year == None and month != None):
+        print('invalid input')
+        return
+    
     wb = xlwt.Workbook()
     ws :xlwt.Worksheet = wb.add_sheet("monthly summary", cell_overwrite_ok=True)
 
 
     today = datetime.now()
+    if month != None:
+        if (year != today.year and month != today.month): # if month is not this month
+            today = datetime(year, month, calendar.monthrange(year, month)[1])
+        else:
+            year = None
+            month = None
+    
     if year == None:
         year = today.year
     if month == None:
@@ -41,20 +54,26 @@ def to_spreadsheet( guildid: str, year: int=None, month: int=None):
 
     for i in range(1, today.day+1):
         ws.write(0, i, calendar.month_abbr[today.month]+" "+str(i))
-    
-
+    crow = 0
     for user in enumerate(guild["record"][year][month].keys()):
+        '''
         # foreach user
         if int(month) == 1:
             assumed_val = get_last_score(str(int(year)-1), "12", user[1], guild)
         else:
             assumed_val = get_last_score(year, str(int(month)-1), user[1], guild)
-        ws.write(user[0]+1, 0, user[1])
+        '''
+        assumed_val = 0
         prev_unreal : dict= guild["record"][year][month][user[1]]["previous_unrealness"]
         unreal_keys = list(prev_unreal.keys())
+        if len(unreal_keys) == 1:
+            continue
+        crow +=1
+
+        ws.write(crow, 0, guild["record"][year][month][user[1]]["name"])
 
         for date in range(1, datetime.fromisoformat(unreal_keys[0]).day):
-            ws.write(user[0]+1, date, assumed_val)
+            ws.write(crow, date, assumed_val)
         c_i = 0
         for date in range(datetime.fromisoformat(unreal_keys[0]).day, today.day+1):
             if c_i+1 != len(unreal_keys):
@@ -62,12 +81,15 @@ def to_spreadsheet( guildid: str, year: int=None, month: int=None):
                     c_i+=1
                     if c_i+1 == len(unreal_keys):
                         break
-            ws.write(user[0]+1, date, prev_unreal[unreal_keys[c_i]]["value"])
+            ws.write(crow, date, prev_unreal[unreal_keys[c_i]]["value"])
             pass
 
     wb.save(os.path.join(os.getcwd(), f"{year}-{month}-{guildid}.xlsx"))
 
 
 if __name__ == "__main__":
-    to_spreadsheet("914593613697142844")
+    if len(sys.argv) == 3:
+        to_spreadsheet("914593613697142844", int(sys.argv[1]), int(sys.argv[2]))
+    else:
+        to_spreadsheet("914593613697142844")
 

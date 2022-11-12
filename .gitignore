@@ -8,6 +8,7 @@ yarn.lock
 yarn-*.log
 package-lock.json
 node_modules/
+dist/
 
 #nohup
 nohup.out
