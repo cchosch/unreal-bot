@@ -20,15 +20,15 @@ const cmds = [
         description: "update a user's unreal factor",
         options: [
             {
-                type: 6,
-                name: "user",
-                description: "user to be updated",
-                required: true
-            },
-            {
                 type: 4,
                 name: "increment",
                 description: "ammount to increment by",
+                required: true
+            },
+            {
+                type: 6,
+                name: "user",
+                description: "user to be updated",
                 required: true
             },
             {

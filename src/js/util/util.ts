@@ -1,10 +1,14 @@
 import Express from "express"
 
 
-const handle_error_cb = (reject: Function, func_name: string)=>{
+const handle_error_cb = (reject: Function)=>{
     return (reason)=>{
-        console.log(`${func_name} ERR:\n`+reason.error);
-        reject(reason)
+        if(reason.error)
+            console.log(reason);
+        reject({
+            message: reason.message === undefined ? "something went wrong" : reason.message, 
+            status_code: reason.status_code === undefined ? 500 : reason.status_code
+        });
     }
 }
 
