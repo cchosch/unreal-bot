@@ -53,14 +53,13 @@ const update_guild_users = (guild: Guild) =>  {
                         memb.setNickname(get_nickname(memb.user.username, this_month[memb.id].unrealness)).catch((err)=>{
                             if(err.rawError.code === 50013)
                                 return;
-                            
                         });
 
-                });
-                if(needs_writing)
-                    fs.writeFileSync(path.join(guilds_path, guild.id+".json"), JSON.stringify(guild_obj, undefined, 2))
+                    if(needs_writing)
+                        fs.writeFileSync(path.join(guilds_path, guild.id+".json"), JSON.stringify(guild_obj, undefined, 2))
 
-                resolve({message: "Successfully updated all guild users"})
+                    resolve({message: "Successfully updated all guild users"})
+                });
             }).catch(err=>{
                 console.log(err);
                 reject({error: "update_guild error", message: "something went wrong", status_code: 500});
