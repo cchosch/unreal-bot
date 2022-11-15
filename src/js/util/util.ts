@@ -3,7 +3,7 @@ import Express from "express"
 
 const handle_error_cb = (reject: Function)=>{
     return (reason)=>{
-        if(reason.error)
+        if(reason.error !== undefined || reason.error !== null)
             console.log(reason);
         reject({
             message: reason.message === undefined ? "something went wrong" : reason.message, 

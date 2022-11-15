@@ -2,7 +2,7 @@ import path from "path";
 import fs from "fs";
 import { handle_error_cb } from "./util";
 import internal from "stream";
-import { Guild, GuildMember, Interaction, User, APIInteractionDataResolvedGuildMember } from "discord.js";
+import { Guild, GuildMember, Interaction, User, APIInteractionDataResolvedGuildMember, DiscordAPIError } from "discord.js";
 const guilds_path = path.join(__dirname, "..", "..", "guilds");
 
 const to_iso_format = (date: Date)=>{
@@ -41,15 +41,20 @@ const update_guild_users = (guild: Guild) =>  {
                     if(!tracking.includes(memb.id)) return;
                     
                     if(!Object.keys(this_month).includes(memb.id)){
-                        this_month[memb.id] = init_user(memb.displayName);
+                        this_month[memb.id] = init_user(memb.user.username);
                         needs_writing = true;
-                    }else if(this_month[memb.id].name !== memb.displayName){
-                        this_month[memb.id].name = memb.displayName;
+                    }else if(this_month[memb.id].name !== memb.user.username){
+                        this_month[memb.id].name = memb.user.username;
                         needs_writing = true;
                     }
                     
-                    if(guild.ownerId !== memb.id && memb.nickname !== get_nickname(memb.displayName, this_month[memb.id].unrealness))
-                        memb.setNickname(get_nickname(memb.displayName, this_month[memb.id].unrealness));
+                    
+                    if(memb.nickname !== get_nickname(memb.user.username, this_month[memb.id].unrealness))
+                        memb.setNickname(get_nickname(memb.user.username, this_month[memb.id].unrealness)).catch((err)=>{
+                            if(err.rawError.code === 50013)
+                                return;
+                            
+                        });
 
                 });
                 if(needs_writing)
@@ -117,20 +122,24 @@ const update_guild = async (guildid: string)=>{
     })
 }
 
-const track_guild_user = (guild: Guild, user: GuildMember) =>{
+/**
+ * @param {Guild} guild 
+ * @param {GuildMember} user 
+ */
+const track_guild_user = (guild: Guild, user: any) =>{
     return new Promise((resolve, reject)=>{
-        create_guild(guild.id).then(()=>{
+        update_guild(guild.id).then(v=>{
             var now = new Date();
-            update_guild(guild.id).then(()=>{
-                var guild_obj: Object = JSON.parse(fs.readFileSync(path.join(guilds_path, guild.id+".json")).toString())
-                if(guild_obj["tracking"].includes(user.id))
-                    return resolve({message: `already tracking ${user.id}`})
+            var guild_obj: Object = JSON.parse(fs.readFileSync(path.join(guilds_path, guild.id+".json")).toString())
+            if(guild_obj["tracking"].includes(user.id))
+                return resolve({message: `already tracking ${user.id}`})
 
-                guild_obj["tracking"].push(user.id);
-                guild_obj["record"][now.getFullYear().toString()][(now.getMonth()+1).toString()][user.id] = init_user(user.displayName);
+            guild_obj["tracking"].push(user.id);
+            guild_obj["record"][now.getFullYear().toString()][(now.getMonth()+1).toString()][user.id] = init_user(user.user.username);
 
-                fs.writeFileSync(path.join(guilds_path,guild.id+".json"), JSON.stringify(guild_obj, undefined, 2));
+            fs.writeFileSync(path.join(guilds_path,guild.id+".json"), JSON.stringify(guild_obj, undefined, 2));
 
+            update_guild_users(guild).then(()=>{
                 resolve({message: `Successfully added ${user.id} to ${guild.id}`});
             }).catch(handle_error_cb(reject));
         }).catch(handle_error_cb(reject));
@@ -194,14 +203,14 @@ const get_person = async (guildid: string, memberid: string, month?: string, yea
 }
 
 /**
- * @param {string} guildid id of guild (required)
- * @param {string} memberid id of member (required)
+ * @param {Guild} guildid (required)
+ * @param {GuildMember} member member of guild (required)
  * @param {number} increment ammount to increment unrealness score (required)
  * @param {string} reason_change? the reason for the change
  * @param {string} year? year to update
  * @param {string} month? month to update
  */
-const increment_user = async (guildid: string, member: any, increment: any, reason_change?: string, month?: string,  year?: string) =>{
+const increment_user = async (guild: Guild, member: any, increment: any, reason_change?: string, month?: string,  year?: string) =>{
     return new Promise<Object>(async (resolve, reject)=>{
         var today = new Date();
         if (year === undefined){
@@ -212,18 +221,38 @@ const increment_user = async (guildid: string, member: any, increment: any, reas
             reason_change = ""
         }
 
-        person_exists(guildid, member.id, month, year).then(guild_json=>{
-            var user_obj = guild_json["record"][year][month][member.id]
-            user_obj.unrealness+=increment
-            user_obj.previous_unrealness[new Date().toISOString().replace("T", " ").replace("Z", "")] = {
-                value: user_obj.unrealness,
-                reason: reason_change
-            }
-            member.setNickname(get_nickname(member.displayName, user_obj.unrealness))
+        if(typeof member === "string")
+            member = {id: member}
 
-            fs.writeFileSync(path.join(guilds_path, guildid+".json"), JSON.stringify(guild_json, undefined, 2))
-            resolve({message: `Updated user unrealness to ${user_obj.unrealness}`})
-        }).catch(handle_error_cb(reject))
+        guild.members.fetch().then(v=>{
+            var membs = Array.from(v.filter(memb=> memb.id === member.id))
+
+            if(membs.length === 0)
+                return reject({error: null, message: `User ${member.id} does not exist in guild`, status_code: 404});
+            member = membs[0][1]
+            update_guild(guild.id).then(()=>{
+                var guild_json = JSON.parse(fs.readFileSync(path.join(guilds_path, guild.id+".json")).toString());
+                if(!guild_json["tracking"].includes(member.id))
+                    guild_json["tracking"].push(member.id)
+
+                if(!Object.keys(guild_json["record"][year][month]).includes(member.id))
+                    guild_json["record"][year][month][member.id] = init_user(member.user.username);
+                
+                var user_obj = guild_json["record"][year][month][member.id]
+                user_obj.unrealness+=increment
+                user_obj.previous_unrealness[new Date().toISOString().replace("T", " ").replace("Z", "")] = {
+                    value: user_obj.unrealness,
+                    reason: reason_change
+                }
+
+                if(guild.ownerId !== member.id)
+                    member.setNickname(get_nickname(member.user.username, user_obj.unrealness))
+                
+                fs.writeFileSync(path.join(guilds_path, guild.id+".json"), JSON.stringify(guild_json, undefined, 2))
+                resolve({message: `Updated user unrealness to ${user_obj.unrealness}`})
+            })
+        })
+
     });
 }
 

@@ -15,6 +15,17 @@ app.get("/", (req, res)=>{
     res.send("");
 })
 
+app.get("/user", (req: Express.Request, res: Express.Response)=>{
+    if(req.body.gid === undefined || typeof req.body.gid !== "string")
+        return res.status(500).json({message: "gid uninitialized properly"})
+    if(req.body.uid === undefined || typeof req.body.uid !== "string")
+        return res.status(500).json({message: "uid uninitialized properly"})
+    
+    get_person(req.body.gid, req.body.uid).then(person=>{res.json(person)}).catch(err=>{
+        res.status(err.status_code).json({message: err.message});
+    });
+})
+
 app.put("/track-user", (req: Express.Request, res: Express.Response)=>{
     if(typeof req.body.gid !== "string" || req.body.gid === undefined)
         return res.status(400).json({message: "gid not initialized properly"});
@@ -42,7 +53,6 @@ app.put("/track-user", (req: Express.Request, res: Express.Response)=>{
 })
 
 app.put("/increment-user", (req: Express.Request, res: Express.Response)=>{
-    console.log(req.body)
     if(typeof req.body.uid !== "string" || req.body.uid === undefined)
         return res.json({error: "invalid uid"});
 
@@ -56,11 +66,17 @@ app.put("/increment-user", (req: Express.Request, res: Express.Response)=>{
         return res.json({error: "invalid type of reason"});
     
     
-    increment_user(req.body.gid, req.body.uid, req.body.increment, req.body.reason).then(v=>{
-        res.json(v)
-    }).catch(reason=>{
-        console.log(reason.error)
-        res.status(reason.status_code).json({error: reason.message})
+    unreal_bot.guilds.fetch(req.body.gid).then(guild=>{
+        increment_user(guild, req.body.uid, req.body.increment, req.body.reason).then(v=>{
+            res.json(v)
+        }).catch(reason=>{
+            res.status(reason.status_code).json({error: reason.message})
+        })
+    }).catch(err=>{
+        if(Object.keys(err.rawError.errors).includes("guild_id"))
+            return res.status(500).json({message: `Guild id ${req.body.gid} is invalid`});
+        
+        throw err
     })
 });
 
