@@ -244,8 +244,12 @@ const increment_user = async (guild: Guild, member: any, increment: any, reason_
                     reason: reason_change
                 }
 
-                if(guild.ownerId !== member.id)
-                    member.setNickname(get_nickname(member.user.username, user_obj.unrealness))
+                if(guild.ownerId !== member.id && member.nickname !== get_nickname(member.user.username, guild_json["record"][year][month][member.id].unrealness))
+                    member.setNickname(get_nickname(member.user.username, guild_json["record"][year][month][member.id].unrealness)).catch((err)=>{
+                        if(err.rawError.code === 50013)
+                            return;
+                        else throw err;
+                    });
                 
                 fs.writeFileSync(path.join(guilds_path, guild.id+".json"), JSON.stringify(guild_json, undefined, 2))
                 resolve({message: `Updated user unrealness to ${user_obj.unrealness}`})
